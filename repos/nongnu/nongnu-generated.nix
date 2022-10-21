@@ -214,10 +214,10 @@
       elpaBuild {
         pname = "buttercup";
         ename = "buttercup";
-        version = "1.26";
+        version = "1.27";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/buttercup-1.26.tar";
-          sha256 = "1ddzk6h4cxrl7mn8vr2qp4xjj2al3h5s3kwqxpdwd3zn6wqgyqm4";
+          url = "https://elpa.nongnu.org/nongnu/buttercup-1.27.tar";
+          sha256 = "18kgiaiqzy40vx1z14zs34p1vrljmg6s8fkck6fyvrbk8lpv0kay";
         };
         packageRequires = [ emacs ];
         meta = {
@@ -711,10 +711,10 @@
       elpaBuild {
         pname = "evil-nerd-commenter";
         ename = "evil-nerd-commenter";
-        version = "3.5.7";
+        version = "3.5.8";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/evil-nerd-commenter-3.5.7.tar";
-          sha256 = "1lar8hy9n29gv4cijalyy2ba23y0kyh9ycnsi5dzjs68pk3y4hca";
+          url = "https://elpa.nongnu.org/nongnu/evil-nerd-commenter-3.5.8.tar";
+          sha256 = "0hrzwca24dy4g9h7v5csqpwvsfj1ns4gqlnlf1q5i0jqvhvklnj5";
         };
         packageRequires = [ emacs ];
         meta = {
@@ -792,10 +792,10 @@
       elpaBuild {
         pname = "focus";
         ename = "focus";
-        version = "1.0.0";
+        version = "1.0.1";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/focus-1.0.0.tar";
-          sha256 = "0gicqiw7npcf18rfb99hm1s054m9l4izzcqzij2kpnc544aqgf9y";
+          url = "https://elpa.nongnu.org/nongnu/focus-1.0.1.tar";
+          sha256 = "1kiyvbdbjhjfkl5cq6q78lfgbir7iayswwm2qnj4df95nbm8shsz";
         };
         packageRequires = [ cl-lib emacs ];
         meta = {
@@ -842,10 +842,10 @@
       elpaBuild {
         pname = "geiser";
         ename = "geiser";
-        version = "0.26.1";
+        version = "0.27";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/geiser-0.26.1.tar";
-          sha256 = "1fq68gvyyrplxw8i0yma4q0yqmrzp00v1v7izlc5r7h58wryy39a";
+          url = "https://elpa.nongnu.org/nongnu/geiser-0.27.tar";
+          sha256 = "1kpirf9r79srm2ma90gkamhb3rsy43cin40dnj9fzjg7qyrrzvbm";
         };
         packageRequires = [ emacs project transient ];
         meta = {
@@ -1929,6 +1929,21 @@
           license = lib.licenses.free;
         };
       }) {};
+    pcre2el = callPackage ({ elpaBuild, emacs, fetchurl, lib }:
+      elpaBuild {
+        pname = "pcre2el";
+        ename = "pcre2el";
+        version = "1.11";
+        src = fetchurl {
+          url = "https://elpa.nongnu.org/nongnu/pcre2el-1.11.tar";
+          sha256 = "147da1iqlgsjsnfffk4iwfjsrv98xz5s4wjdys9r98n0j723js7r";
+        };
+        packageRequires = [ emacs ];
+        meta = {
+          homepage = "https://elpa.gnu.org/packages/pcre2el.html";
+          license = lib.licenses.free;
+        };
+      }) {};
     pdf-tools = callPackage ({ elpaBuild
                              , emacs
                              , fetchurl
@@ -1968,10 +1983,10 @@
       elpaBuild {
         pname = "popon";
         ename = "popon";
-        version = "0.9";
+        version = "0.10";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/popon-0.9.tar";
-          sha256 = "1vnrdjg63fcpgzzc45l9cx67yb2lnk5prfp5js4dpdhz93d14qck";
+          url = "https://elpa.nongnu.org/nongnu/popon-0.10.tar";
+          sha256 = "06i29hhpw3shz5fam4h7g8qs23y0lq5qqmdmlbpjkkj7nkdjd9kp";
         };
         packageRequires = [ emacs ];
         meta = {
@@ -2096,6 +2111,21 @@
         packageRequires = [ emacs ];
         meta = {
           homepage = "https://elpa.gnu.org/packages/request.html";
+          license = lib.licenses.free;
+        };
+      }) {};
+    rfc-mode = callPackage ({ elpaBuild, emacs, fetchurl, lib }:
+      elpaBuild {
+        pname = "rfc-mode";
+        ename = "rfc-mode";
+        version = "1.3.0";
+        src = fetchurl {
+          url = "https://elpa.nongnu.org/nongnu/rfc-mode-1.3.0.tar";
+          sha256 = "1wdqp03rrx7ar21nvbnrb7518c3vgf41z00bav00pw8cdx5c4m10";
+        };
+        packageRequires = [ emacs ];
+        meta = {
+          homepage = "https://elpa.gnu.org/packages/rfc-mode.html";
           license = lib.licenses.free;
         };
       }) {};
@@ -2362,10 +2392,10 @@
       elpaBuild {
         pname = "sweeprolog";
         ename = "sweeprolog";
-        version = "0.4.7";
+        version = "0.7.1";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/sweeprolog-0.4.7.tar";
-          sha256 = "1bba69ir6p37z470gaj0zy6l6avslnmaw2plxmnkdjsvm9pq90b5";
+          url = "https://elpa.nongnu.org/nongnu/sweeprolog-0.7.1.tar";
+          sha256 = "1kkh3b5hl044w23aj70qq4pkalixz265wbrzla0vfbh6pcnkfwga";
         };
         packageRequires = [ emacs ];
         meta = {
@@ -2653,10 +2683,10 @@
       elpaBuild {
         pname = "web-mode";
         ename = "web-mode";
-        version = "17.3.1";
+        version = "17.3.3";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/web-mode-17.3.1.tar";
-          sha256 = "0xlpxk9qscxip93lqyl1l5bzv6nxgq5yb8r05s4jslcipbbfil1d";
+          url = "https://elpa.nongnu.org/nongnu/web-mode-17.3.3.tar";
+          sha256 = "1ci28dfg6k4hwiqz85v9c24n7s52z29ghfyfjg971lq4mfqbx4yy";
         };
         packageRequires = [ emacs ];
         meta = {
@@ -2751,10 +2781,10 @@
       elpaBuild {
         pname = "xah-fly-keys";
         ename = "xah-fly-keys";
-        version = "18.1.20220921110635";
+        version = "18.2.20221004113716";
         src = fetchurl {
-          url = "https://elpa.nongnu.org/nongnu/xah-fly-keys-18.1.20220921110635.tar";
-          sha256 = "0nnd7jq1k62cgjb5y45jg6b76gvzyqh11kha7has4zipd52psvnj";
+          url = "https://elpa.nongnu.org/nongnu/xah-fly-keys-18.2.20221004113716.tar";
+          sha256 = "11girbh6qfifa4n9j8djg4yzmf55mqygbma3xmnzvkvxp36ar59m";
         };
         packageRequires = [ emacs ];
         meta = {
