@@ -16,7 +16,7 @@ let
       super.emacs
       ([
 
-        (drv: drv.override ({ srcRepo = true; } // builtins.removeAttrs args [ "withTreeSitterPlugins" "withTreeSitter" ]))
+        (drv: drv.override ({ srcRepo = true; } // builtins.removeAttrs args [ "noTreeSitter" ]))
 
         (
           drv: drv.overrideAttrs (
@@ -69,21 +69,52 @@ let
           result
         )
       ]
-      ++ (super.lib.optional (args ? "withTreeSitter") (
+      ++ (super.lib.optional (! (args ? "noTreeSitter")) (
         drv: drv.overrideAttrs (old:
           let
             libName = drv: super.lib.removeSuffix "-grammar" drv.pname;
-            lib = drv: ''lib${libName drv}.so'';
-            linkCmd = drv: "ln -s ${drv}/parser $out/lib/${lib drv}";
+            libSuffix = if super.stdenv.isDarwin then "dylib" else "so";
+            lib = drv: ''lib${libName drv}.${libSuffix}'';
+            linkCmd = drv:
+              if super.stdenv.isDarwin
+              then ''cp ${drv}/parser $out/lib/${lib drv}
+                     # FIXME: Is this kosher?
+                     /usr/bin/install_name_tool -id $out/lib/${lib drv} $out/lib/${lib drv}
+                     /usr/bin/codesign -s - -f $out/lib/${lib drv}
+                ''
+              else ''ln -s ${drv}/parser $out/lib/${lib drv}'';
             linkerFlag = drv: "-l" + libName drv;
-            plugins = args.withTreeSitterPlugins self.pkgs.tree-sitter-grammars;
+            plugins = with self.pkgs.tree-sitter-grammars; [
+              tree-sitter-bash
+              tree-sitter-c
+              tree-sitter-c-sharp
+              tree-sitter-cpp
+              tree-sitter-css
+              tree-sitter-java
+              tree-sitter-python
+              tree-sitter-javascript
+              tree-sitter-json
+              tree-sitter-tsx
+              tree-sitter-typescript
+            ];
             tree-sitter-grammars = super.runCommand "tree-sitter-grammars" {}
               (super.lib.concatStringsSep "\n" (["mkdir -p $out/lib"] ++ (map linkCmd plugins)));
           in {
             buildInputs = old.buildInputs ++ [ self.pkgs.tree-sitter tree-sitter-grammars ];
             # before building the `.el` files, we need to allow the `tree-sitter` libraries
             # bundled in emacs to be dynamically loaded.
-            TREE_SITTER_LIBS = super.lib.concatStringsSep " " ([ "-ltree-sitter" ] ++ (map linkerFlag plugins)); 
+            TREE_SITTER_LIBS = super.lib.concatStringsSep " " ([ "-ltree-sitter" ] ++ (map linkerFlag plugins));
+            # Add to directories that tree-sitter looks in for language definitions / shared object parsers
+            # FIXME: This was added for macOS, but it shouldn't be necessary on any platform.
+            # https://git.savannah.gnu.org/cgit/emacs.git/tree/src/treesit.c?h=64044f545add60e045ff16a9891b06f429ac935f#n533
+            # appends a bunch of filenames that appear to be incorrectly skipped over
+            # in https://git.savannah.gnu.org/cgit/emacs.git/tree/src/treesit.c?h=64044f545add60e045ff16a9891b06f429ac935f#n567
+            # on macOS, but are handled properly in Linux.
+            postPatch = old.postPatch + super.lib.optionalString super.stdenv.isDarwin ''
+                 substituteInPlace src/treesit.c \
+                 --replace "Vtreesit_extra_load_path = Qnil;" \
+                           "Vtreesit_extra_load_path = list1 ( build_string ( \"${tree-sitter-grammars}/lib\" ) );"
+            '';
           }
         )
       )));
@@ -98,37 +129,17 @@ let
 
   emacsGit = mkGitEmacs "emacs-git" ../repos/emacs/emacs-master.json { withSQLite3 = true; withWebP = true; };
 
-  emacsNativeComp = super.emacsNativeComp or (mkGitEmacs "emacs-native-comp" ../repos/emacs/emacs-unstable.json { nativeComp = true; });
+  emacsPgtk = mkPgtkEmacs "emacs-pgtk" ../repos/emacs/emacs-master.json { withSQLite3 = true; withWebP = true; withGTK3 = true; };
 
-  emacsGitNativeComp = mkGitEmacs "emacs-git-native-comp" ../repos/emacs/emacs-master.json {
-    withSQLite3 = true;
-    withWebP = true;
-    nativeComp = true;
-  };
+  emacsUnstable = (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json { noTreeSitter = true; });
 
-  emacsPgtk = mkPgtkEmacs "emacs-pgtk" ../repos/emacs/emacs-master.json { withSQLite3 = true; withGTK3 = true; };
-
-  emacsPgtkNativeComp = mkPgtkEmacs "emacs-pgtk-native-comp" ../repos/emacs/emacs-master.json { nativeComp = true; withSQLite3 = true; withGTK3 = true; };
-
-  emacsUnstable = (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json { });
-
-  emacsGitTreeSitter = super.lib.makeOverridable (mkGitEmacs "emacs-git-tree-sitter" ../repos/emacs/emacs-feature_tree-sitter.json) {
-    withTreeSitter = true;
-    withTreeSitterPlugins = (plugins: with plugins; [
-      tree-sitter-python
-      tree-sitter-javascript
-      tree-sitter-json
-      tree-sitter-tsx
-    ]);
-  };
+  emacsLsp = (mkGitEmacs "emacs-lsp" ../repos/emacs/emacs-lsp.json { noTreeSitter = true; });
 
 in
 {
   inherit emacsGit emacsUnstable;
 
-  inherit emacsNativeComp emacsGitNativeComp;
-
-  inherit emacsPgtk emacsPgtkNativeComp;
+  inherit emacsPgtk;
 
   emacsGit-nox = (
     (
@@ -162,13 +173,17 @@ in
     )
   );
 
-  inherit emacsGitTreeSitter;
+  inherit emacsLsp;
 
   emacsWithPackagesFromUsePackage = import ../elisp.nix { pkgs = self; };
 
   emacsWithPackagesFromPackageRequires = import ../packreq.nix { pkgs = self; };
 
 } // super.lib.optionalAttrs (super.config.allowAliases or true) {
-  emacsGcc = builtins.trace "emacsGcc has been renamed to emacsNativeComp, please update your expression." emacsNativeComp;
-  emacsPgtkGcc = builtins.trace "emacsPgtkGcc has been renamed to emacsPgtkNativeComp, please update your expression." emacsPgtkNativeComp;
+  emacsGcc = builtins.trace "emacsGcc has been renamed to emacsGit, please update your expression." emacsGit;
+  emacsGitNativeComp = builtins.trace "emacsGitNativeComp has been renamed to emacsGit, please update your expression." emacsGit;
+  emacsGitTreeSitter = builtins.trace "emacsGitTreeSitter has been renamed to emacsGit, please update your expression." emacsGit;
+  emacsNativeComp = builtins.trace "emacsNativeComp has been renamed to emacsUnstable, please update your expression." emacsUnstable;
+  emacsPgtkGcc = builtins.trace "emacsPgtkGcc has been renamed to emacsPgtk, please update your expression." emacsPgtk;
+  emacsPgtkNativeComp = builtins.trace "emacsPgtkNativeComp has been renamed to emacsPgtk, please update your expression." emacsPgtk;
 }
