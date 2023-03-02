@@ -1,7 +1,10 @@
 {
   description = "Bleeding edge Emacs overlay";
 
-  inputs.flake-utils.url = "github:numtide/flake-utils";
+  inputs = {
+    flake-utils.url = "github:numtide/flake-utils";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+  };
 
   outputs =
     { self
@@ -24,15 +27,19 @@
           overlays = [ self.overlays.default ];
         };
         inherit (pkgs) lib;
-        overlayAttrs = builtins.attrNames (import ./. pkgs pkgs);
+        overlayAttributes = lib.pipe (import ./. pkgs pkgs) [
+          builtins.attrNames
+          (lib.partition (n: lib.isDerivation pkgs.${n}))
+        ];
+        attributesToAttrset = attributes: lib.pipe attributes [
+          (map (n: lib.nameValuePair n pkgs.${n}))
+          lib.listToAttrs
+        ];
 
       in
       {
-        packages =
-          let
-            drvAttrs = builtins.filter (n: lib.isDerivation pkgs.${n}) overlayAttrs;
-          in
-          lib.listToAttrs (map (n: lib.nameValuePair n pkgs.${n}) drvAttrs);
+        lib = attributesToAttrset overlayAttributes.wrong;
+        packages = attributesToAttrset overlayAttributes.right;
       }
     ));
 

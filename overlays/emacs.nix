@@ -16,7 +16,7 @@ let
       super.emacs
       ([
 
-        (drv: drv.override ({ srcRepo = true; } // builtins.removeAttrs args [ "noTreeSitter" ]))
+        (drv: drv.override ({ srcRepo = true; } // builtins.removeAttrs args [ "noTreeSitter" "treeSitterPlugins" ]))
 
         (
           drv: drv.overrideAttrs (
@@ -26,6 +26,11 @@ let
               src = fetcher (builtins.removeAttrs repoMeta [ "type" "version" ]);
 
               patches = [ ];
+
+              # fixes segfaults that only occur on aarch64-linux (issue#264)
+              configureFlags = old.configureFlags ++
+                               super.lib.optionals (super.stdenv.isLinux && super.stdenv.isAarch64)
+                                 [ "--enable-check-lisp-object-type" ];
 
               postPatch = old.postPatch + ''
                 substituteInPlace lisp/loadup.el \
@@ -77,59 +82,54 @@ let
             lib = drv: ''lib${libName drv}.${libSuffix}'';
             linkCmd = drv:
               if super.stdenv.isDarwin
-              then ''cp ${drv}/parser $out/lib/${lib drv}
-                     # FIXME: Is this kosher?
-                     /usr/bin/install_name_tool -id $out/lib/${lib drv} $out/lib/${lib drv}
+              then ''cp ${drv}/parser .
+                     chmod +w ./parser
+                     install_name_tool -id $out/lib/${lib drv} ./parser
+                     cp ./parser $out/lib/${lib drv}
                      /usr/bin/codesign -s - -f $out/lib/${lib drv}
                 ''
               else ''ln -s ${drv}/parser $out/lib/${lib drv}'';
-            linkerFlag = drv: "-l" + libName drv;
-            plugins = with self.pkgs.tree-sitter-grammars; [
-              tree-sitter-bash
-              tree-sitter-c
-              tree-sitter-c-sharp
-              tree-sitter-cpp
-              tree-sitter-css
-              tree-sitter-java
-              tree-sitter-python
-              tree-sitter-javascript
-              tree-sitter-json
-              tree-sitter-tsx
-              tree-sitter-typescript
-            ];
-            tree-sitter-grammars = super.runCommand "tree-sitter-grammars" {}
+            plugins = args.treeSitterPlugins;
+            tree-sitter-grammars = super.runCommandCC "tree-sitter-grammars" {}
               (super.lib.concatStringsSep "\n" (["mkdir -p $out/lib"] ++ (map linkCmd plugins)));
           in {
             buildInputs = old.buildInputs ++ [ self.pkgs.tree-sitter tree-sitter-grammars ];
-            # before building the `.el` files, we need to allow the `tree-sitter` libraries
-            # bundled in emacs to be dynamically loaded.
-            TREE_SITTER_LIBS = super.lib.concatStringsSep " " ([ "-ltree-sitter" ] ++ (map linkerFlag plugins));
-            # Add to directories that tree-sitter looks in for language definitions / shared object parsers
-            # FIXME: This was added for macOS, but it shouldn't be necessary on any platform.
-            # https://git.savannah.gnu.org/cgit/emacs.git/tree/src/treesit.c?h=64044f545add60e045ff16a9891b06f429ac935f#n533
-            # appends a bunch of filenames that appear to be incorrectly skipped over
-            # in https://git.savannah.gnu.org/cgit/emacs.git/tree/src/treesit.c?h=64044f545add60e045ff16a9891b06f429ac935f#n567
-            # on macOS, but are handled properly in Linux.
-            postPatch = old.postPatch + super.lib.optionalString super.stdenv.isDarwin ''
-                 substituteInPlace src/treesit.c \
-                 --replace "Vtreesit_extra_load_path = Qnil;" \
-                           "Vtreesit_extra_load_path = list1 ( build_string ( \"${tree-sitter-grammars}/lib\" ) );"
-            '';
+            buildFlags = super.lib.optionalString self.stdenv.isDarwin
+              "LDFLAGS=-Wl,-rpath,${super.lib.makeLibraryPath [tree-sitter-grammars]}";
+            TREE_SITTER_LIBS = "-ltree-sitter";
+            # Add to list of directories dlopen/dynlib_open searches for tree sitter languages *.so
+            postFixup = old.postFixup + super.lib.optionalString self.stdenv.isLinux ''
+                ${self.pkgs.patchelf}/bin/patchelf --add-rpath ${super.lib.makeLibraryPath [ tree-sitter-grammars ]} $out/bin/emacs
+              '';
           }
         )
       )));
 
+  defaultTreeSitterPlugins = with self.pkgs.tree-sitter-grammars; [
+    tree-sitter-bash
+    tree-sitter-c
+    tree-sitter-c-sharp
+    tree-sitter-cmake
+    tree-sitter-cpp
+    tree-sitter-css
+    tree-sitter-dockerfile
+    tree-sitter-go
+    tree-sitter-gomod
+    tree-sitter-java
+    tree-sitter-javascript
+    tree-sitter-json
+    tree-sitter-python
+    tree-sitter-ruby
+    tree-sitter-rust
+    tree-sitter-toml
+    tree-sitter-tsx
+    tree-sitter-typescript
+    tree-sitter-yaml
+  ];
 
-  mkPgtkEmacs = namePrefix: jsonFile: { ... }@args: (mkGitEmacs namePrefix jsonFile args).overrideAttrs (
-    old: {
-      configureFlags = (super.lib.remove "--with-xft" old.configureFlags)
-        ++ super.lib.singleton "--with-pgtk";
-    }
-  );
+  emacsGit = super.lib.makeOverridable (mkGitEmacs "emacs-git" ../repos/emacs/emacs-master.json) { withSQLite3 = true; withWebP = true; treeSitterPlugins = defaultTreeSitterPlugins; };
 
-  emacsGit = mkGitEmacs "emacs-git" ../repos/emacs/emacs-master.json { withSQLite3 = true; withWebP = true; };
-
-  emacsPgtk = mkPgtkEmacs "emacs-pgtk" ../repos/emacs/emacs-master.json { withSQLite3 = true; withWebP = true; withGTK3 = true; };
+  emacsPgtk = super.lib.makeOverridable (mkGitEmacs "emacs-pgtk" ../repos/emacs/emacs-master.json) { withSQLite3 = true; withWebP = true; withPgtk = true; treeSitterPlugins = defaultTreeSitterPlugins; };
 
   emacsUnstable = (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json { noTreeSitter = true; });
 
