@@ -27,7 +27,7 @@ let
 
               patches = [ ];
 
-              # fixes segfaults that only occur on aarch64-linux (issue#264)
+              # fixes segfaults that only occur on aarch64-linux (#264)
               configureFlags = old.configureFlags ++
                                super.lib.optionals (super.stdenv.isLinux && super.stdenv.isAarch64)
                                  [ "--enable-check-lisp-object-type" ];
@@ -37,20 +37,33 @@ let
                 --replace '(emacs-repository-get-version)' '"${repoMeta.rev}"' \
                 --replace '(emacs-repository-get-branch)' '"master"'
               '' +
-              # XXX: remove when https://github.com/NixOS/nixpkgs/pull/193621 is merged
+              # XXX: Maybe remove when emacsLsp updates to use Emacs
+              # 29.  We already have logic in upstream Nixpkgs to use
+              # a different patch for earlier major versions of Emacs,
+              # but the major version for emacsLsp follows the format
+              # of version YYYYMMDD, as opposed to version (say) 29.
+              # Removing this here would also require that we don't
+              # overwrite the patches attribute in the overlay to an
+              # empty list since we would then expect the Nixpkgs
+              # patch to be used. Not sure if it's better to rely on
+              # upstream Nixpkgs since it's cumbersome to wait for
+              # things to get merged into master.
                 (super.lib.optionalString (old ? NATIVE_FULL_AOT)
                     (let backendPath = (super.lib.concatStringsSep " "
-                      (builtins.map (x: ''\"-B${x}\"'') [
+                      (builtins.map (x: ''\"-B${x}\"'') ([
                         # Paths necessary so the JIT compiler finds its libraries:
                         "${super.lib.getLib self.libgccjit}/lib"
                         "${super.lib.getLib self.libgccjit}/lib/gcc"
                         "${super.lib.getLib self.stdenv.cc.libc}/lib"
+		      ] ++ super.lib.optionals (self.stdenv.cc?cc.libgcc) [
+			"${super.lib.getLib self.stdenv.cc.cc.libgcc}/lib"
+		      ] ++ [
 
                         # Executable paths necessary for compilation (ld, as):
                         "${super.lib.getBin self.stdenv.cc.cc}/bin"
                         "${super.lib.getBin self.stdenv.cc.bintools}/bin"
                         "${super.lib.getBin self.stdenv.cc.bintools.bintools}/bin"
-                      ]));
+                      ])));
                      in ''
                         substituteInPlace lisp/emacs-lisp/comp.el --replace \
                             "(defcustom comp-libgccjit-reproducer nil" \
@@ -86,7 +99,7 @@ let
                      chmod +w ./parser
                      install_name_tool -id $out/lib/${lib drv} ./parser
                      cp ./parser $out/lib/${lib drv}
-                     /usr/bin/codesign -s - -f $out/lib/${lib drv}
+                     ${self.pkgs.darwin.sigtool}/bin/codesign -s - -f $out/lib/${lib drv}
                 ''
               else ''ln -s ${drv}/parser $out/lib/${lib drv}'';
             plugins = args.treeSitterPlugins;
@@ -115,6 +128,7 @@ let
     tree-sitter-dockerfile
     tree-sitter-go
     tree-sitter-gomod
+    tree-sitter-html
     tree-sitter-java
     tree-sitter-javascript
     tree-sitter-json
@@ -131,7 +145,9 @@ let
 
   emacsPgtk = super.lib.makeOverridable (mkGitEmacs "emacs-pgtk" ../repos/emacs/emacs-master.json) { withSQLite3 = true; withWebP = true; withPgtk = true; treeSitterPlugins = defaultTreeSitterPlugins; };
 
-  emacsUnstable = (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json { noTreeSitter = true; });
+  emacsUnstable = super.lib.makeOverridable (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json) { withSQLite3 = true; withWebP = true; treeSitterPlugins = defaultTreeSitterPlugins; };
+
+  emacsUnstablePgtk = super.lib.makeOverridable (mkGitEmacs "emacs-unstable" ../repos/emacs/emacs-unstable.json) { withSQLite3 = true; withWebP = true; withPgtk = true; treeSitterPlugins = defaultTreeSitterPlugins; };
 
   emacsLsp = (mkGitEmacs "emacs-lsp" ../repos/emacs/emacs-lsp.json { noTreeSitter = true; });
 
@@ -139,7 +155,7 @@ in
 {
   inherit emacsGit emacsUnstable;
 
-  inherit emacsPgtk;
+  inherit emacsPgtk emacsUnstablePgtk;
 
   emacsGit-nox = (
     (
