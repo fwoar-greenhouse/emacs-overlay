@@ -33,18 +33,21 @@
       };
       # for backward compatibility, is safe to delete, not referenced anywhere
       overlay = self.overlays.default;
+
+      # Run Hercules CI for these systems.
+      herculesCI.ciSystems = [ "x86_64-linux" ];
+
     } // flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
     {
       hydraJobs =
         let
           mkHydraJobs = pkgs:
             let
-              mkEmacsSet = emacs: pkgs.recurseIntoAttrs (
-                lib.filterAttrs
-                  (n: v: builtins.typeOf v == "set" && ! lib.isDerivation v)
-                  (pkgs.emacsPackagesFor emacs)
-              );
               inherit (pkgs) lib;
+
+              filterNonDrvAttrs = s: lib.mapAttrs (_: v: if (lib.isDerivation v) then v else filterNonDrvAttrs v) (lib.filterAttrs (_: v: lib.isDerivation v || (builtins.typeOf v == "set" && ! builtins.hasAttr "__functor" v)) s);
+
+              mkEmacsSet = emacs: filterNonDrvAttrs (pkgs.recurseIntoAttrs (pkgs.emacsPackagesFor emacs));
 
             in
             {
