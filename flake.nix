@@ -9,7 +9,7 @@
   inputs = {
     flake-utils.url = "github:numtide/flake-utils";
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-23.11";
+    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-24.05";
   };
 
   outputs =
@@ -37,7 +37,7 @@
       # Run Hercules CI for these systems.
       herculesCI.ciSystems = [ "x86_64-linux" ];
 
-    } // flake-utils.lib.eachSystem [ "x86_64-linux" ] (system:
+    } // flake-utils.lib.eachSystem [ "aarch64-linux" "x86_64-linux" ] (system:
     {
       hydraJobs =
         let
@@ -58,32 +58,13 @@
                 inherit (pkgs) emacs-pgtk;
               };
 
-              emacsen-cross =
-                let
-                  crossTargets = [ "aarch64-multiplatform" ];
-                in
-                lib.fold lib.recursiveUpdate { }
-                  (builtins.map
-                    (target:
-                      let
-                        targetPkgs = pkgs.pkgsCross.${target};
-                      in
-                      lib.mapAttrs' (name: job: lib.nameValuePair "${name}-${target}" job)
-                        ({
-                          inherit (targetPkgs) emacs-unstable emacs-unstable-nox;
-                          inherit (targetPkgs) emacs-unstable-pgtk;
-                          inherit (targetPkgs) emacs-git emacs-git-nox;
-                          inherit (targetPkgs) emacs-pgtk;
-                        }))
-                    crossTargets);
-
               packages = mkEmacsSet pkgs.emacs;
               packages-unstable = mkEmacsSet pkgs.emacs-unstable;
             };
 
         in
         {
-          "23.05" = mkHydraJobs (importPkgs nixpkgs-stable { inherit system; });
+          "stable" = mkHydraJobs (importPkgs nixpkgs-stable { inherit system; });
           "unstable" = mkHydraJobs (importPkgs nixpkgs { inherit system; });
         };
     }) // flake-utils.lib.eachDefaultSystem (system: (
